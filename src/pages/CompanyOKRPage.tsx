@@ -6,6 +6,10 @@ import api from '../api/axios';
 interface KeyResult {
   title: string;
   description: string;
+  metricType: 'number' | 'percentage' | 'currency' | 'custom';
+  startValue: number;
+  targetValue: number;
+  unit: string;
   teams: string[];
   progress: number;
 }
@@ -14,6 +18,8 @@ interface Objective {
   _id: string;
   objective: string;
   description: string;
+  deadline: string;
+  isFrozen: boolean;
   keyResults: KeyResult[];
   progress: number;
   status: string;
@@ -51,6 +57,20 @@ const OKRCard: React.FC<{
   const [editingKRIndex, setEditingKRIndex] = useState<number | null>(null);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
+  const handleFreezeOKR = async () => {
+    try {
+      await api.patch(`/corporate-okrs/${objective._id}/freeze`, {
+        isFrozen: !objective.isFrozen
+      });
+      // Refresh the objectives after update
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating freeze status:', error);
+    } finally {
+      setIsStatusMenuOpen(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -74,6 +94,31 @@ const OKRCard: React.FC<{
         return 'Черновик';
       default:
         return status;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ru-RU', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getMetricDisplay = (kr: KeyResult) => {
+    switch (kr.metricType) {
+      case 'number':
+        return `${kr.startValue} → ${kr.targetValue} ${kr.unit}`;
+      case 'percentage':
+        return `${kr.startValue}% → ${kr.targetValue}%`;
+      case 'currency':
+        return `${kr.startValue} ${kr.unit} → ${kr.targetValue} ${kr.unit}`;
+      case 'custom':
+        return `${kr.startValue} ${kr.unit} → ${kr.targetValue} ${kr.unit}`;
+      default:
+        return '';
     }
   };
 
@@ -101,12 +146,16 @@ const OKRCard: React.FC<{
   return (
     <div className="bg-white rounded-lg shadow-md p-4 relative">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">{objective.objective}</h3>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold">{objective.objective}</h3>
+          {objective.isFrozen && (
+            <span className="inline-block mt-1 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+              Заморожен
+            </span>
+          )}
+        </div>
         {isCreator && (
           <div className="flex items-center space-x-2">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(objective.status)}`}>
-              {getStatusText(objective.status)}
-            </span>
             <div className="relative">
               <button
                 onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
@@ -119,16 +168,10 @@ const OKRCard: React.FC<{
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
                   <div className="py-1">
                     <button
-                      onClick={() => setIsStatusMenuOpen(false)}
+                      onClick={() => handleFreezeOKR()}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      Редактировать
-                    </button>
-                    <button
-                      onClick={() => setIsStatusMenuOpen(false)}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    >
-                      Удалить
+                      {objective.isFrozen ? 'Разморозить' : 'Заморозить'}
                     </button>
                   </div>
                 </div>
@@ -141,6 +184,12 @@ const OKRCard: React.FC<{
       {objective.description && (
         <p className="text-gray-600 text-sm mb-4">{objective.description}</p>
       )}
+
+      <div className="mb-4">
+        <span className="text-sm font-medium text-gray-700">
+          Дедлайн: {formatDate(objective.deadline)}
+        </span>
+      </div>
 
       <div className="space-y-3">
         {objective.keyResults.map((kr, index) => (
@@ -163,6 +212,11 @@ const OKRCard: React.FC<{
             {kr.description && (
               <p className="text-sm text-gray-600 mb-2">{kr.description}</p>
             )}
+            <div className="mb-2">
+              <span className="text-sm font-medium text-gray-700">
+                Метрика: {getMetricDisplay(kr)}
+              </span>
+            </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-blue-600 h-2 rounded-full"
@@ -262,15 +316,31 @@ const CompanyOKRPage: React.FC = () => {
   const [newObjective, setNewObjective] = useState<{
     objective: string;
     description: string;
+    deadline: string;
+    isFrozen: boolean;
     keyResults: Array<{
       title: string;
       description: string;
+      metricType: 'number' | 'percentage' | 'currency' | 'custom';
+      startValue: number;
+      targetValue: number;
+      unit: string;
       teams: string[];
     }>;
   }>({
     objective: '',
     description: '',
-    keyResults: [{ title: '', description: '', teams: [] }]
+    deadline: new Date().toISOString(),
+    isFrozen: false,
+    keyResults: [{
+      title: '',
+      description: '',
+      metricType: 'number',
+      startValue: 0,
+      targetValue: 0,
+      unit: '',
+      teams: []
+    }]
   });
 
   useEffect(() => {
@@ -326,7 +396,17 @@ const CompanyOKRPage: React.FC = () => {
       setNewObjective({
         objective: '',
         description: '',
-        keyResults: [{ title: '', description: '', teams: [] }]
+        deadline: new Date().toISOString(),
+        isFrozen: false,
+        keyResults: [{
+          title: '',
+          description: '',
+          metricType: 'number',
+          startValue: 0,
+          targetValue: 0,
+          unit: '',
+          teams: []
+        }]
       });
       fetchObjectives();
     } catch (error) {
@@ -337,7 +417,15 @@ const CompanyOKRPage: React.FC = () => {
   const handleAddKeyResult = () => {
     setNewObjective(prev => ({
       ...prev,
-      keyResults: [...prev.keyResults, { title: '', description: '', teams: [] }]
+      keyResults: [...prev.keyResults, {
+        title: '',
+        description: '',
+        metricType: 'number',
+        startValue: 0,
+        targetValue: 0,
+        unit: '',
+        teams: []
+      }]
     }));
   };
 
@@ -348,7 +436,7 @@ const CompanyOKRPage: React.FC = () => {
     }));
   };
 
-  const handleKeyResultChange = (index: number, field: string, value: string | string[] | boolean) => {
+  const handleKeyResultChange = (index: number, field: string, value: string | number | boolean | string[]) => {
     setNewObjective(prev => ({
       ...prev,
       keyResults: prev.keyResults.map((kr, i) => 
@@ -396,6 +484,25 @@ const CompanyOKRPage: React.FC = () => {
                 required
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Дедлайн</label>
+              <input
+                type="datetime-local"
+                value={newObjective.deadline.slice(0, 16)}
+                onChange={(e) => setNewObjective(prev => ({ ...prev, deadline: new Date(e.target.value).toISOString() }))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={newObjective.isFrozen}
+                onChange={(e) => setNewObjective(prev => ({ ...prev, isFrozen: e.target.checked }))}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label className="ml-2 block text-sm text-gray-700">Заморожен</label>
+            </div>
 
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -437,6 +544,53 @@ const CompanyOKRPage: React.FC = () => {
                       onChange={(e) => handleKeyResultChange(index, 'description', e.target.value)}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       rows={2}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Тип метрики</label>
+                    <select
+                      value={kr.metricType}
+                      onChange={(e) => handleKeyResultChange(index, 'metricType', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="number">Число</option>
+                      <option value="percentage">Процент</option>
+                      <option value="currency">Валюта</option>
+                      <option value="custom">Произвольное значение</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Начальное значение</label>
+                      <input
+                        type="number"
+                        value={kr.startValue}
+                        onChange={(e) => handleKeyResultChange(index, 'startValue', parseFloat(e.target.value))}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Целевое значение</label>
+                      <input
+                        type="number"
+                        value={kr.targetValue}
+                        onChange={(e) => handleKeyResultChange(index, 'targetValue', parseFloat(e.target.value))}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Единица измерения</label>
+                    <input
+                      type="text"
+                      value={kr.unit}
+                      onChange={(e) => handleKeyResultChange(index, 'unit', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="шт., %, руб. и т.д."
                       required
                     />
                   </div>

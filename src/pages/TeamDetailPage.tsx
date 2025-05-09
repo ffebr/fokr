@@ -21,6 +21,17 @@ const getStatusText = (status: string) => {
   }
 };
 
+const metricTypeOptions = [
+  { value: 'number', label: 'Число' },
+  { value: 'percentage', label: 'Процент' },
+  { value: 'currency', label: 'Валюта' },
+  { value: 'custom', label: 'Произвольное значение' }
+] as const;
+
+const getMetricTypeLabel = (type: string) => {
+  return metricTypeOptions.find(option => option.value === type)?.label || type;
+};
+
 interface User {
   _id: string;
   name: string;
@@ -35,21 +46,29 @@ interface TeamMember {
 interface KeyResult {
   title: string;
   description: string;
+  metricType: 'number' | 'percentage' | 'currency' | 'custom';
+  startValue: number;
+  targetValue: number;
+  unit: string;
+  actualValue: number;
   progress: number;
   attachedTeamOKR?: string;
 }
 
 interface OKR {
   _id: string;
+  team: string;
+  createdBy: string;
   objective: string;
   description: string;
   keyResults: KeyResult[];
   progress: number;
-  status: 'draft' | 'active' | 'done';
   createdAt: string;
   updatedAt: string;
   parentOKR?: string;
   parentKRIndex?: number;
+  deadline: string;
+  isFrozen: boolean;
   attachedCorporateOKR?: {
     _id: string;
     objective: string;
@@ -86,13 +105,19 @@ interface CorporateOKR {
 }
 
 interface AssignedKeyResult {
-  title: string;
-  description: string;
-  progress: number;
-  teams: string[];
   corporateOKRId: string;
-  corporateOKR: CorporateOKR;
-  krIndex: number;
+  companyName: string;
+  objective: string;
+  keyResult: {
+    title: string;
+    description: string;
+    metricType: string;
+    startValue: number;
+    targetValue: number;
+    unit: string;
+    teams: string[];
+    progress: number;
+  };
 }
 
 interface CreateOKRForm {
@@ -101,10 +126,15 @@ interface CreateOKRForm {
   keyResults: {
     title: string;
     description: string;
+    metricType: 'number' | 'percentage' | 'currency' | 'duration' | 'custom';
+    startValue: number;
+    targetValue: number;
+    unit: string;
   }[];
   status: 'draft' | 'active' | 'done';
   parentOKR?: string;
   parentKRIndex?: number;
+  deadline: string;
 }
 
 interface AssignedKR {
@@ -149,7 +179,7 @@ interface AttachOKRModalProps {
 }
 
 const AttachOKRModal: React.FC<AttachOKRModalProps> = ({ isOpen, onClose, onAttach, teamId }) => {
-  const [assignedKRs, setAssignedKRs] = useState<AssignedKR[]>([]);
+  const [assignedKRs, setAssignedKRs] = useState<AssignedKeyResult[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -195,19 +225,21 @@ const AttachOKRModal: React.FC<AttachOKRModalProps> = ({ isOpen, onClose, onAtta
             {assignedKRs.length > 0 ? (
               assignedKRs.map((kr) => (
                 <div
-                  key={`${kr.corporateOKRId}-${kr.krIndex}`}
+                  key={kr.corporateOKRId}
                   className="p-4 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
-                    onAttach(kr.corporateOKRId, kr.krIndex);
+                    onAttach(kr.corporateOKRId, 0); // Since we don't have krIndex in the new format, we'll use 0
                     onClose();
                   }}
                 >
-                  <h3 className="font-medium">{kr.title}</h3>
-                  {kr.description && (
-                    <p className="text-sm text-gray-600 mt-1">{kr.description}</p>
+                  <h3 className="font-medium">{kr.keyResult.title}</h3>
+                  {kr.keyResult.description && (
+                    <p className="text-sm text-gray-600 mt-1">{kr.keyResult.description}</p>
                   )}
                   <div className="mt-2">
-                    <div className="text-sm text-gray-600">Прогресс: {kr.progress}%</div>
+                    <div className="text-sm text-gray-600">Прогресс: {kr.keyResult.progress}%</div>
+                    <div className="text-sm text-gray-600">Компания: {kr.companyName}</div>
+                    <div className="text-sm text-gray-600">Цель: {kr.objective}</div>
                   </div>
                 </div>
               ))
@@ -225,7 +257,7 @@ const AttachOKRModal: React.FC<AttachOKRModalProps> = ({ isOpen, onClose, onAtta
 
 const OKRCard: React.FC<{ 
   okr: OKR;
-  onStatusChange: (okrId: string, newStatus: 'draft' | 'active' | 'done') => void;
+  onStatusChange: (okrId: string) => void;
   onAttachToAssignedKR: (okrId: string, corporateOKRId: string, krIndex: number) => void;
 }> = ({ okr, onStatusChange, onAttachToAssignedKR }) => {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
@@ -233,19 +265,36 @@ const OKRCard: React.FC<{
   const navigate = useNavigate();
   const { teamId, companyId } = useParams();
 
+  const handleFreezeToggle = async () => {
+    try {
+      await api.patch(`/okrs/${okr._id}/freeze`, {
+        isFrozen: !okr.isFrozen
+      });
+      // Обновляем состояние OKR после успешного запроса
+      onStatusChange(okr._id);
+      setIsStatusMenuOpen(false);
+    } catch (error) {
+      console.error('Ошибка при изменении состояния заморозки OKR:', error);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-4 relative">
       <div className="flex items-center justify-between mb-4">
-        <h3 
-          className="text-lg font-semibold cursor-pointer hover:text-blue-600"
-          onClick={() => navigate(`/companies/${companyId}/teams/${teamId}/okrs/${okr._id}`)}
-        >
-          {okr.objective}
-        </h3>
+        <div className="flex-1">
+          <h3 
+            className="text-lg font-semibold cursor-pointer hover:text-blue-600"
+            onClick={() => navigate(`/companies/${companyId}/teams/${teamId}/okrs/${okr._id}`)}
+          >
+            {okr.objective}
+          </h3>
+          {okr.isFrozen && (
+            <span className="inline-block mt-1 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+              Заморожен
+            </span>
+          )}
+        </div>
         <div className="flex items-center space-x-2">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(okr.status)}`}>
-            {getStatusText(okr.status)}
-          </span>
           <div className="relative">
             <button
               onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
@@ -258,31 +307,10 @@ const OKRCard: React.FC<{
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
                 <div className="py-1">
                   <button
-                    onClick={() => {
-                      onStatusChange(okr._id, 'draft');
-                      setIsStatusMenuOpen(false);
-                    }}
+                    onClick={handleFreezeToggle}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    Изменить на "Черновик"
-                  </button>
-                  <button
-                    onClick={() => {
-                      onStatusChange(okr._id, 'active');
-                      setIsStatusMenuOpen(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Изменить на "Активный"
-                  </button>
-                  <button
-                    onClick={() => {
-                      onStatusChange(okr._id, 'done');
-                      setIsStatusMenuOpen(false);
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Изменить на "Завершен"
+                    {okr.isFrozen ? 'Разморозить' : 'Заморозить'}
                   </button>
                 </div>
               </div>
@@ -294,6 +322,10 @@ const OKRCard: React.FC<{
       {okr.description && (
         <p className="text-gray-600 text-sm mb-4">{okr.description}</p>
       )}
+
+      <div className="text-sm text-gray-500 mb-4">
+        <div>Срок: {new Date(okr.deadline).toLocaleDateString('ru-RU')}</div>
+      </div>
 
       {okr.attachedCorporateOKR && (
         <div className="mb-4 p-3 bg-blue-50 rounded-md">
@@ -341,6 +373,11 @@ const OKRCard: React.FC<{
             {kr.description && (
               <p className="text-sm text-gray-600 mb-2">{kr.description}</p>
             )}
+            <div className="text-sm text-gray-600 mb-2">
+              <div>Тип метрики: {getMetricTypeLabel(kr.metricType)}</div>
+              <div>Текущее значение: {kr.actualValue} {kr.unit}</div>
+              <div>Целевое значение: {kr.targetValue} {kr.unit}</div>
+            </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-blue-600 h-2 rounded-full"
@@ -393,8 +430,16 @@ const CreateOKRModal: React.FC<{
   const [form, setForm] = useState<CreateOKRForm>({
     objective: '',
     description: '',
-    keyResults: [{ title: '', description: '' }],
-    status: 'active'
+    keyResults: [{ 
+      title: '', 
+      description: '', 
+      metricType: 'number',
+      startValue: 0,
+      targetValue: 0,
+      unit: ''
+    }],
+    status: 'active',
+    deadline: new Date().toISOString().split('T')[0]
   });
   const [assignedKRs, setAssignedKRs] = useState<AssignedKeyResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -428,7 +473,7 @@ const CreateOKRModal: React.FC<{
   const addKeyResult = () => {
     setForm(prev => ({
       ...prev,
-      keyResults: [...prev.keyResults, { title: '', description: '' }]
+      keyResults: [...prev.keyResults, { title: '', description: '', metricType: 'number', startValue: 0, targetValue: 0, unit: '' }]
     }));
   };
 
@@ -439,7 +484,7 @@ const CreateOKRModal: React.FC<{
     }));
   };
 
-  const updateKeyResult = (index: number, field: 'title' | 'description', value: string) => {
+  const updateKeyResult = (index: number, field: 'title' | 'description' | 'metricType' | 'startValue' | 'targetValue' | 'unit', value: string | number) => {
     setForm(prev => ({
       ...prev,
       keyResults: prev.keyResults.map((kr, i) => 
@@ -452,7 +497,7 @@ const CreateOKRModal: React.FC<{
     setForm(prev => ({
       ...prev,
       parentOKR: kr.corporateOKRId,
-      parentKRIndex: kr.krIndex
+      parentKRIndex: 0
     }));
     setIsSelectOpen(false);
   };
@@ -498,6 +543,19 @@ const CreateOKRModal: React.FC<{
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Срок выполнения
+            </label>
+            <input
+              type="date"
+              value={form.deadline}
+              onChange={(e) => setForm(prev => ({ ...prev, deadline: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
           {assignedKRs.length > 0 && !form.parentOKR && (
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -516,7 +574,7 @@ const CreateOKRModal: React.FC<{
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {assignedKRs.map((kr) => (
                       <button
-                        key={`${kr.corporateOKRId}-${kr.krIndex}`}
+                        key={kr.corporateOKRId}
                         type="button"
                         onClick={() => selectAssignedKR(kr)}
                         className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2"
@@ -527,9 +585,9 @@ const CreateOKRModal: React.FC<{
                           )}
                         </div>
                         <div className="flex-grow min-w-0">
-                          <div className="font-medium truncate">{kr.title}</div>
+                          <div className="font-medium truncate">{kr.keyResult.title}</div>
                           <div className="text-sm text-gray-500 truncate">
-                            {kr.corporateOKR.objective}
+                            {kr.objective}
                           </div>
                         </div>
                       </button>
@@ -606,6 +664,66 @@ const CreateOKRModal: React.FC<{
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={2}
                   />
+                  <div className="grid grid-cols-2 gap-4 mb-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Тип метрики
+                      </label>
+                      <select
+                        value={kr.metricType}
+                        onChange={(e) => updateKeyResult(index, 'metricType', e.target.value as 'number' | 'percentage' | 'currency' | 'duration' | 'custom')}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        {metricTypeOptions.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Единица измерения
+                      </label>
+                      <input
+                        type="text"
+                        value={kr.unit}
+                        onChange={(e) => updateKeyResult(index, 'unit', e.target.value)}
+                        placeholder="шт., %, $, ч. и т.д."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Начальное значение
+                      </label>
+                      <input
+                        type="number"
+                        value={kr.startValue}
+                        onChange={(e) => updateKeyResult(index, 'startValue', Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Целевое значение
+                      </label>
+                      <input
+                        type="number"
+                        value={kr.targetValue}
+                        onChange={(e) => updateKeyResult(index, 'targetValue', Number(e.target.value))}
+                        placeholder="100"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -727,7 +845,9 @@ const TeamDetailPage: React.FC = () => {
         ...(okrData.parentOKR && {
           parentOKR: okrData.parentOKR,
           parentKRIndex: okrData.parentKRIndex
-        })
+        }),
+        deadline: new Date(okrData.deadline).toISOString(),
+        isFrozen: false
       };
       console.log(requestData);
 
@@ -762,14 +882,12 @@ const TeamDetailPage: React.FC = () => {
     }
   };
 
-  const handleStatusChange = async (okrId: string, newStatus: 'draft' | 'active' | 'done') => {
+  const handleStatusChange = async (okrId: string) => {
     try {
-      const response = await api.patch(`/okrs/${okrId}/status`, { status: newStatus });
-      setOkrs(prev => prev.map(okr => 
-        okr._id === okrId ? { ...okr, status: newStatus } : okr
-      ));
+      // Обновляем список OKR после изменения состояния заморозки
+      await fetchTeamOKRs();
     } catch (error) {
-      console.error('Ошибка при обновлении статуса OKR:', error);
+      console.error('Ошибка при обновлении OKR:', error);
     }
   };
 

@@ -7,6 +7,11 @@ interface KeyResult {
   title: string;
   description: string;
   progress: number;
+  actualValue: number;
+  unit: string;
+  metricType: 'number' | 'percentage' | 'currency' | 'custom';
+  startValue: number;
+  targetValue: number;
 }
 
 interface OKR {
@@ -15,9 +20,9 @@ interface OKR {
   description: string;
   keyResults: KeyResult[];
   progress: number;
-  status: 'draft' | 'active' | 'done';
   createdAt: string;
   updatedAt: string;
+  isFrozen: boolean;
 }
 
 interface CheckInUpdate {
@@ -40,6 +45,7 @@ interface CreateCheckInForm {
   okrId: string;
   updates: {
     index: number;
+    newActualValue: number;
     newProgress: number;
   }[];
   comment: string;
@@ -87,6 +93,7 @@ const CreateCheckInModal: React.FC<{
           ...prev,
           updates: response.data.keyResults.map((kr, index) => ({
             index,
+            newActualValue: kr.actualValue,
             newProgress: kr.progress
           }))
         }));
@@ -105,19 +112,101 @@ const CreateCheckInModal: React.FC<{
     onSubmit(form);
   };
 
-  const updateProgress = (index: number, value: number) => {
-    if (!okr) return;
-    const currentProgress = okr.keyResults[index].progress;
-    if (value < currentProgress) {
-      return; // Не позволяем уменьшать прогресс
+  const calculateProgress = (actualValue: number, startValue: number, targetValue: number, metricType: string) => {
+    if (metricType === 'percentage') {
+      const span = targetValue - startValue;
+      const currentProgress = actualValue - startValue;
+      return (currentProgress / span) * 100;
     }
+    return ((actualValue - startValue) / (targetValue - startValue)) * 100;
+  };
+
+  const updateActualValue = (index: number, value: number) => {
+    if (!okr) return;
+    const kr = okr.keyResults[index];
+    
+    // Проверяем, что новое значение не меньше текущего
+    if (value < kr.actualValue) {
+      return; // Не позволяем уменьшать значение
+    }
+    
+    // Для percentage типа ограничиваем значения от startValue до targetValue
+    if (kr.metricType === 'percentage') {
+      value = Math.max(kr.startValue, Math.min(kr.targetValue, value));
+    }
+    
+    const newProgress = calculateProgress(value, kr.startValue, kr.targetValue, kr.metricType);
     
     setForm(prev => ({
       ...prev,
       updates: prev.updates.map((update, i) => 
-        i === index ? { ...update, newProgress: value } : update
+        i === index ? { ...update, newActualValue: value, newProgress } : update
       )
     }));
+  };
+
+  const renderMetricInput = (kr: KeyResult, index: number) => {
+    switch (kr.metricType) {
+      case 'percentage':
+        return (
+          <div className="flex items-center space-x-4">
+            <input
+              type="range"
+              min={kr.startValue}
+              max={kr.targetValue}
+              value={form.updates[index].newActualValue}
+              onChange={(e) => updateActualValue(index, parseInt(e.target.value))}
+              className="flex-1"
+            />
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                min={kr.startValue}
+                max={kr.targetValue}
+                value={form.updates[index].newActualValue}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (!isNaN(value)) {
+                    updateActualValue(index, value);
+                  }
+                }}
+                className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">%</span>
+            </div>
+          </div>
+        );
+      
+      default:
+        return (
+          <div className="flex items-center space-x-4">
+            <input
+              type="range"
+              min={kr.actualValue}
+              max={kr.targetValue}
+              value={form.updates[index].newActualValue}
+              onChange={(e) => updateActualValue(index, parseFloat(e.target.value))}
+              className="flex-1"
+            />
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                min={kr.actualValue}
+                max={kr.targetValue}
+                value={form.updates[index].newActualValue}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value);
+                  if (!isNaN(value)) {
+                    updateActualValue(index, value);
+                  }
+                }}
+                className="w-24 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium">{kr.unit}</span>
+            </div>
+          </div>
+        );
+    }
   };
 
   if (!isOpen) return null;
@@ -186,34 +275,17 @@ const CreateCheckInModal: React.FC<{
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="range"
-                      min={kr.progress}
-                      max="100"
-                      value={form.updates[index].newProgress}
-                      onChange={(e) => updateProgress(index, parseInt(e.target.value))}
-                      className="flex-1"
-                    />
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="number"
-                        min={kr.progress}
-                        max="100"
-                        value={form.updates[index].newProgress}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value);
-                          if (!isNaN(value)) {
-                            updateProgress(index, value);
-                          }
-                        }}
-                        className="w-16 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium">%</span>
-                    </div>
+                  
+                  <div className="mb-4">
+                    {renderMetricInput(kr, index)}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Текущий прогресс: {kr.progress}%
+
+                  <div className="text-xs text-gray-500">
+                    <div>Текущее значение: {kr.actualValue} {kr.unit}</div>
+                    <div>Текущий прогресс: {kr.progress}%</div>
+                    {kr.metricType !== 'percentage' && (
+                      <div>Диапазон: {kr.startValue} - {kr.targetValue} {kr.unit}</div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -397,13 +469,15 @@ const OKRCheckInsPage: React.FC = () => {
           <ArrowLeft className="w-5 h-5 mr-2" />
           Назад
         </button>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Создать чек-ин
-        </button>
+        {okr && !okr.isFrozen && okr.progress < 100 && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Создать чек-ин
+          </button>
+        )}
       </div>
 
       <div className="mb-6">
