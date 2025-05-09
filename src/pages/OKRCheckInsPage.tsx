@@ -75,10 +75,11 @@ const CreateCheckInModal: React.FC<{
   const [okr, setOkr] = useState<OKR | null>(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<CreateCheckInForm>({
-    okrId,
+    okrId: '',
     updates: [],
     comment: ''
   });
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     const fetchOKR = async () => {
@@ -89,14 +90,15 @@ const CreateCheckInModal: React.FC<{
         const response = await api.get<OKR>(`/okrs/${okrId}`);
         setOkr(response.data);
         // Инициализируем форму с текущими значениями прогресса
-        setForm(prev => ({
-          ...prev,
+        setForm({
+          okrId,
           updates: response.data.keyResults.map((kr, index) => ({
             index,
             newActualValue: kr.actualValue,
             newProgress: kr.progress
-          }))
-        }));
+          })),
+          comment: ''
+        });
       } catch (error) {
         console.error('Ошибка при загрузке OKR:', error);
       } finally {
@@ -109,6 +111,11 @@ const CreateCheckInModal: React.FC<{
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.comment.trim()) {
+      setError('Пожалуйста, добавьте комментарий');
+      return;
+    }
+    setError('');
     onSubmit(form);
   };
 
@@ -251,10 +258,16 @@ const CreateCheckInModal: React.FC<{
             </label>
             <textarea
               value={form.comment}
-              onChange={(e) => setForm(prev => ({ ...prev, comment: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => {
+                setForm(prev => ({ ...prev, comment: e.target.value }));
+                setError(''); // Очищаем ошибку при изменении
+              }}
+              className={`w-full px-3 py-2 border ${error ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
               rows={3}
             />
+            {error && (
+              <p className="mt-1 text-sm text-red-600">{error}</p>
+            )}
           </div>
 
           <div>
@@ -277,7 +290,35 @@ const CreateCheckInModal: React.FC<{
                   </div>
                   
                   <div className="mb-4">
-                    {renderMetricInput(kr, index)}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Текущее значение
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="range"
+                        min={kr.startValue}
+                        max={kr.targetValue}
+                        value={form.updates[index].newActualValue}
+                        onChange={(e) => updateActualValue(index, parseInt(e.target.value))}
+                        className="flex-1"
+                      />
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          min={kr.startValue}
+                          max={kr.targetValue}
+                          value={form.updates[index].newActualValue}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            if (!isNaN(value)) {
+                              updateActualValue(index, value);
+                            }
+                          }}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium">{kr.unit}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="text-xs text-gray-500">

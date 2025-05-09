@@ -461,180 +461,236 @@ const CompanyOKRPage: React.FC = () => {
       </div>
 
       {isCreator && showCreateForm && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Создать новый OKR</h2>
-          <form onSubmit={handleCreateObjective} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Цель</label>
-              <input
-                type="text"
-                value={newObjective.objective}
-                onChange={(e) => setNewObjective(prev => ({ ...prev, objective: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Описание</label>
-              <textarea
-                value={newObjective.description}
-                onChange={(e) => setNewObjective(prev => ({ ...prev, description: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                rows={3}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Дедлайн</label>
-              <input
-                type="datetime-local"
-                value={newObjective.deadline.slice(0, 16)}
-                onChange={(e) => setNewObjective(prev => ({ ...prev, deadline: new Date(e.target.value).toISOString() }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={newObjective.isFrozen}
-                onChange={(e) => setNewObjective(prev => ({ ...prev, isFrozen: e.target.checked }))}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <label className="ml-2 block text-sm text-gray-700">Заморожен</label>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Создать новый OKR</h2>
+              <button
+                onClick={() => setShowCreateForm(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Ключевые результаты</h3>
+            <form onSubmit={handleCreateObjective} className="space-y-6">
+              <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Цель</label>
+                  <input
+                    type="text"
+                    value={newObjective.objective}
+                    onChange={(e) => setNewObjective(prev => ({ ...prev, objective: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                  <textarea
+                    value={newObjective.description}
+                    onChange={(e) => setNewObjective(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Дедлайн</label>
+                  <input
+                    type="datetime-local"
+                    value={newObjective.deadline.slice(0, 16)}
+                    onChange={(e) => setNewObjective(prev => ({ ...prev, deadline: new Date(e.target.value).toISOString() }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={newObjective.isFrozen}
+                    onChange={(e) => setNewObjective(prev => ({ ...prev, isFrozen: e.target.checked }))}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label className="ml-2 block text-sm text-gray-700">Заморожен</label>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Ключевые результаты</h3>
+                  <button
+                    type="button"
+                    onClick={handleAddKeyResult}
+                    className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Добавить KR
+                  </button>
+                </div>
+
+                {newObjective.keyResults.map((kr, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium text-gray-900">KR {index + 1}</h4>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveKeyResult(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
+                        <input
+                          type="text"
+                          value={kr.title}
+                          onChange={(e) => handleKeyResultChange(index, 'title', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                        <textarea
+                          value={kr.description}
+                          onChange={(e) => handleKeyResultChange(index, 'description', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows={2}
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Тип метрики</label>
+                        <select
+                          value={kr.metricType}
+                          onChange={(e) => handleKeyResultChange(index, 'metricType', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="number">Число</option>
+                          <option value="percentage">Процент</option>
+                          <option value="currency">Валюта</option>
+                          <option value="custom">Произвольное значение</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Начальное значение</label>
+                          <div>
+                            <input
+                              type="number"
+                              value={kr.startValue || ''}
+                              min="0"
+                              onChange={(e) => {
+                                const newValue = parseFloat(e.target.value);
+                                if (!isNaN(newValue)) {
+                                  if (newValue >= 0 && newValue < kr.targetValue) {
+                                    handleKeyResultChange(index, 'startValue', newValue);
+                                  }
+                                } else {
+                                  handleKeyResultChange(index, 'startValue', 0);
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                            <span className="text-sm text-gray-500 mt-1 block">{kr.unit}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Целевое значение</label>
+                          <div>
+                            <input
+                              type="number"
+                              value={kr.targetValue || ''}
+                              min="0"
+                              onChange={(e) => {
+                                const newValue = parseFloat(e.target.value);
+                                if (!isNaN(newValue)) {
+                                  if (newValue >= 0 && newValue > kr.startValue) {
+                                    if (kr.metricType === 'percentage' && newValue > 100) {
+                                      return;
+                                    }
+                                    handleKeyResultChange(index, 'targetValue', newValue);
+                                  }
+                                } else {
+                                  handleKeyResultChange(index, 'targetValue', 0);
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            />
+                            <span className="text-sm text-gray-500 mt-1 block">{kr.unit}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Единица измерения</label>
+                        <input
+                          type="text"
+                          value={kr.unit}
+                          onChange={(e) => handleKeyResultChange(index, 'unit', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="шт., %, руб. и т.д."
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Команды</label>
+                        <div className="mt-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-2">
+                          {teams.map(team => (
+                            <label key={team._id} className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={kr.teams.includes(team._id)}
+                                onChange={(e) => {
+                                  const newTeams = e.target.checked
+                                    ? [...kr.teams, team._id]
+                                    : kr.teams.filter(id => id !== team._id);
+                                  handleKeyResultChange(index, 'teams', newTeams);
+                                }}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className="text-sm text-gray-700">{team.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={handleAddKeyResult}
-                  className="text-blue-600 hover:text-blue-700"
+                  onClick={() => setShowCreateForm(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
                 >
-                  <Plus className="w-5 h-5" />
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                >
+                  Создать
                 </button>
               </div>
-              {newObjective.keyResults.map((kr, index) => (
-                <div key={index} className="border rounded-md p-4 space-y-4">
-                  <div className="flex justify-between">
-                    <h4 className="font-medium">KR {index + 1}</h4>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveKeyResult(index)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Название</label>
-                    <input
-                      type="text"
-                      value={kr.title}
-                      onChange={(e) => handleKeyResultChange(index, 'title', e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Описание</label>
-                    <textarea
-                      value={kr.description}
-                      onChange={(e) => handleKeyResultChange(index, 'description', e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      rows={2}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Тип метрики</label>
-                    <select
-                      value={kr.metricType}
-                      onChange={(e) => handleKeyResultChange(index, 'metricType', e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="number">Число</option>
-                      <option value="percentage">Процент</option>
-                      <option value="currency">Валюта</option>
-                      <option value="custom">Произвольное значение</option>
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Начальное значение</label>
-                      <input
-                        type="number"
-                        value={kr.startValue}
-                        onChange={(e) => handleKeyResultChange(index, 'startValue', parseFloat(e.target.value))}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Целевое значение</label>
-                      <input
-                        type="number"
-                        value={kr.targetValue}
-                        onChange={(e) => handleKeyResultChange(index, 'targetValue', parseFloat(e.target.value))}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Единица измерения</label>
-                    <input
-                      type="text"
-                      value={kr.unit}
-                      onChange={(e) => handleKeyResultChange(index, 'unit', e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="шт., %, руб. и т.д."
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Команды</label>
-                    <div className="mt-2 max-h-48 overflow-y-auto border rounded-md p-2 space-y-2">
-                      {teams.map(team => (
-                        <label key={team._id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={kr.teams.includes(team._id)}
-                            onChange={(e) => {
-                              const newTeams = e.target.checked
-                                ? [...kr.teams, team._id]
-                                : kr.teams.filter(id => id !== team._id);
-                              handleKeyResultChange(index, 'teams', newTeams);
-                            }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">{team.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => setShowCreateForm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Отмена
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Создать
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 

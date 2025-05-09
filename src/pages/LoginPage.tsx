@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
 import axios from 'axios';
 
@@ -26,9 +26,18 @@ const LoginPage: React.FC = () => {
       navigate('/');
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {
-        setError(err.response.data.message || 'Ошибка авторизации');
+        switch (err.response.status) {
+          case 401:
+            setError('Неверный email или пароль');
+            break;
+          case 404:
+            setError('Пользователь не найден');
+            break;
+          default:
+            setError(err.response.data.message || 'Ошибка авторизации');
+        }
       } else {
-        setError('Ошибка сети');
+        setError('Ошибка сети. Пожалуйста, проверьте подключение к интернету');
       }
     } finally {
       setLoading(false);
@@ -49,6 +58,7 @@ const LoginPage: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            placeholder="Введите ваш email"
             className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>
@@ -60,6 +70,7 @@ const LoginPage: React.FC = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            placeholder="Введите ваш пароль"
             className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>
@@ -73,6 +84,13 @@ const LoginPage: React.FC = () => {
         >
           {loading ? 'Входим...' : 'Войти'}
         </button>
+
+        <div className="mt-4 text-center">
+          <span className="text-gray-600">Нет аккаунта? </span>
+          <Link to="/registr" className="text-blue-500 hover:text-blue-600">
+            Зарегистрироваться
+          </Link>
+        </div>
       </form>
     </div>
   );

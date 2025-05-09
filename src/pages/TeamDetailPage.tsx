@@ -111,9 +111,7 @@ interface AssignedKeyResult {
   keyResult: {
     title: string;
     description: string;
-    metricType: string;
     startValue: number;
-    targetValue: number;
     unit: string;
     teams: string[];
     progress: number;
@@ -228,7 +226,7 @@ const AttachOKRModal: React.FC<AttachOKRModalProps> = ({ isOpen, onClose, onAtta
                   key={kr.corporateOKRId}
                   className="p-4 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
-                    onAttach(kr.corporateOKRId, 0); // Since we don't have krIndex in the new format, we'll use 0
+                    onAttach(kr.corporateOKRId, 0);
                     onClose();
                   }}
                 >
@@ -701,27 +699,49 @@ const CreateOKRModal: React.FC<{
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Начальное значение
                       </label>
-                      <input
-                        type="number"
-                        value={kr.startValue}
-                        onChange={(e) => updateKeyResult(index, 'startValue', Number(e.target.value))}
-                        placeholder="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
+                      <div className="flex items-center space-x-4">
+                        <input
+                          type="range"
+                          min="0"
+                          max="1000"
+                          value={kr.startValue}
+                          onChange={(e) => updateKeyResult(index, 'startValue', Number(e.target.value))}
+                          className="flex-1"
+                        />
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            value={kr.startValue}
+                            onChange={(e) => updateKeyResult(index, 'startValue', Number(e.target.value))}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className="text-sm font-medium">{kr.unit}</span>
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Целевое значение
                       </label>
-                      <input
-                        type="number"
-                        value={kr.targetValue}
-                        onChange={(e) => updateKeyResult(index, 'targetValue', Number(e.target.value))}
-                        placeholder="100"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
+                      <div className="flex items-center space-x-4">
+                        <input
+                          type="range"
+                          min="0"
+                          max="1000"
+                          value={kr.targetValue}
+                          onChange={(e) => updateKeyResult(index, 'targetValue', Number(e.target.value))}
+                          className="flex-1"
+                        />
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            value={kr.targetValue}
+                            onChange={(e) => updateKeyResult(index, 'targetValue', Number(e.target.value))}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className="text-sm font-medium">{kr.unit}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

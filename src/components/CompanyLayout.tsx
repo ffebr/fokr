@@ -62,7 +62,7 @@ const CompanyLayout: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Bar - фиксированный */}
       <div className="fixed top-0 left-0 right-0 z-10">
-        <CompanyTopBar name={userDetail.name} email={userDetail.email} roles={userDetail.roles} />
+        <CompanyTopBar name={userDetail.name} email={userDetail.email} roles={userDetail.roles} companyName={company.name} />
       </div>
 
       {/* Основной контент с отступом под топбар */}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
 
 const RegisterPage: React.FC = () => {
@@ -86,6 +86,13 @@ const RegisterPage: React.FC = () => {
         >
           {loading ? 'Регистрируем...' : 'Зарегистрироваться'}
         </button>
+
+        <div className="mt-4 text-center">
+          <span className="text-gray-600">Уже есть аккаунт? </span>
+          <Link to="/login" className="text-green-500 hover:text-green-600">
+            Войти
+          </Link>
+        </div>
       </form>
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X } from 'lucide-react';
 import api from '../api/axios';
+import CompaniesList from '../components/CompaniesList';
 
 interface CompanySummary {
   _id: string;
@@ -23,16 +23,17 @@ interface CompanyCard {
   memberCount: number;
 }
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
 const CompaniesPage: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const [showModal, setShowModal] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
-
+  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
   const fetchCompanies = async () => {
@@ -76,108 +77,48 @@ const CompaniesPage: React.FC = () => {
 
   useEffect(() => {
     fetchCompanies();
+    // Получаем информацию о пользователе из localStorage
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      setUser(JSON.parse(userStr));
+    }
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
-    setCreateError('');
-    try {
-      const res = await api.post('/companies', { name: newName });
-      // Закрываем модалку и обновляем список
-      setShowModal(false);
-      setNewName('');
-      fetchCompanies();
-    } catch (err: any) {
-      console.error(err);
-      setCreateError(err.response?.data?.message || 'Ошибка создания компании');
-    } finally {
-      setCreating(false);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
   };
 
-  if (loading) return <div className="p-6 text-center">Загрузка компаний...</div>;
+  if (loading) return <div className="p-6 text-center">Загрузка...</div>;
   if (error) return <div className="p-6 text-center text-red-600">{error}</div>;
-  if (!companies.length) return <div className="p-6 text-center">У вас нет доступных компаний.</div>;
 
   return (
-    <>
-      <div className="mt-8 flex justify-center">
-        <div className="max-w-screen-xl w-full px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {companies.map(company => {
-            const displayRoles = [
-              company.isCreator && 'Создатель',
-              ...company.roles
-            ].filter(Boolean).join(', ');
-
-            return (
-              <div
-                key={company.id}
-                onClick={() => navigate(`/companies/${company.id}`)}
-                className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition cursor-pointer"
-              >
-                <h3 className="text-xl font-semibold mb-2">{company.name}</h3>
-                <p className="text-gray-600 mb-1">Роли: {displayRoles}</p>
-                <p className="text-gray-600">Участников: {company.memberCount}</p>
-              </div>
-            );
-          })}
-
-          {/* Карточка создания новой компании */}
-          <div
-            onClick={() => setShowModal(true)}
-            className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition cursor-pointer flex flex-col items-center justify-center"
-          >
-            <Plus className="w-12 h-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-600">Создать компанию</h3>
-          </div>
+    <div className="flex min-h-screen bg-gray-100">
+      {/* Левая панель с информацией о пользователе */}
+      <div className="w-64 bg-white shadow-lg p-6">
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-2">Профиль</h2>
+          {user && (
+            <div className="space-y-2">
+              <p className="text-gray-700">{user.name}</p>
+              <p className="text-gray-500 text-sm">{user.email}</p>
+            </div>
+          )}
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-full py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
+        >
+          Выйти
+        </button>
       </div>
 
-      {/* Модальное окно создания */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center pt-20">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4"
-            >
-              <X className="w-6 h-6 text-gray-600" />
-            </button>
-            <h2 className="text-2xl font-bold mb-4">Новая компания</h2>
-            {createError && <p className="text-red-600 mb-2">{createError}</p>}
-            <form onSubmit={handleCreate}>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Название компании</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="mr-4 px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition ${creating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {creating ? 'Создаем...' : 'Создать'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
+      {/* Правая панель со списком компаний */}
+      <div className="flex-1 p-8">
+        <CompaniesList companies={companies} onCompaniesUpdate={fetchCompanies} />
+      </div>
+    </div>
   );
 };
 
