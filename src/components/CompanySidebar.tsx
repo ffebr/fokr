@@ -12,17 +12,17 @@ const CompanySidebar: React.FC<CompanySidebarProps> = ({ isCreator, onNavigate, 
     {/* Навигация */}
     <nav className="mt-6">
       <ul>
+        <li>
+          <button
+            onClick={() => onNavigate('okrs')}
+            className="block w-full text-left px-6 py-2 hover:bg-gray-100 flex items-center"
+          >
+            <Target className="w-5 h-5 mr-3" />
+            OKR
+          </button>
+        </li>
         {isCreator ? (
           <>
-            <li>
-              <button
-                onClick={() => onNavigate('okrs')}
-                className="block w-full text-left px-6 py-2 hover:bg-gray-100 flex items-center"
-              >
-                <Target className="w-5 h-5 mr-3" />
-                OKR компании
-              </button>
-            </li>
             <li>
               <button
                 onClick={() => onNavigate('users')}
@@ -62,15 +62,6 @@ const CompanySidebar: React.FC<CompanySidebarProps> = ({ isCreator, onNavigate, 
           </>
         ) : (
           <>
-            <li>
-              <button
-                onClick={() => onNavigate('okrs')}
-                className="block w-full text-left px-6 py-2 hover:bg-gray-100 flex items-center"
-              >
-                <Target className="w-5 h-5 mr-3" />
-                Мои OKR
-              </button>
-            </li>
             <li>
               <button
                 onClick={() => onNavigate('users')}

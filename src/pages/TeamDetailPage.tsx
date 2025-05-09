@@ -732,7 +732,30 @@ const TeamDetailPage: React.FC = () => {
       console.log(requestData);
 
       const response = await api.post(`/teams/${teamId}/okrs`, requestData);
-      setOkrs(prev => [...prev, response.data.okr]);
+      const newOKR = response.data.okr;
+
+      // Если OKR прикреплена к корпоративному KR, загружаем информацию о нем
+      if (newOKR.parentOKR && newOKR.parentKRIndex !== undefined) {
+        try {
+          const krResponse = await api.get<CorporateKRResponse>(
+            `/corporate-okrs/${newOKR.parentOKR}/key-results/${newOKR.parentKRIndex}`
+          );
+          
+          newOKR.attachedCorporateOKR = {
+            _id: newOKR.parentOKR,
+            krIndex: newOKR.parentKRIndex,
+            krTitle: krResponse.data.keyResult.title,
+            objective: krResponse.data.keyResult.description,
+            progress: krResponse.data.keyResult.progress,
+            teams: krResponse.data.keyResult.teams,
+            linkedOKRs: krResponse.data.linkedOKRs
+          };
+        } catch (error) {
+          console.error('Ошибка при загрузке информации о прикрепленном KR:', error);
+        }
+      }
+
+      setOkrs(prev => [...prev, newOKR]);
       setIsCreateModalOpen(false);
     } catch (error) {
       console.error('Ошибка при создании OKR:', error);

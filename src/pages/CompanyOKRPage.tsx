@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus, Trash2, Edit2, Target, MoreVertical } from 'lucide-react';
+import { Plus, Trash2, Edit2, Target, MoreVertical, Users, X } from 'lucide-react';
 import api from '../api/axios';
 
 interface KeyResult {
@@ -37,8 +37,19 @@ interface Team {
   updatedAt: string;
 }
 
-const OKRCard: React.FC<{ objective: Objective; teams: Team[] }> = ({ objective, teams }) => {
+interface User {
+  _id: string;
+  role: 'admin' | 'user';
+}
+
+const OKRCard: React.FC<{ 
+  objective: Objective; 
+  teams: Team[];
+  isCreator: boolean;
+}> = ({ objective, teams, isCreator }) => {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const [editingKRIndex, setEditingKRIndex] = useState<number | null>(null);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -66,42 +77,65 @@ const OKRCard: React.FC<{ objective: Objective; teams: Team[] }> = ({ objective,
     }
   };
 
+  const handleEditTeams = (krIndex: number) => {
+    setEditingKRIndex(krIndex);
+    setSelectedTeams(objective.keyResults[krIndex].teams);
+  };
+
+  const handleSaveTeams = async () => {
+    if (editingKRIndex === null) return;
+    
+    try {
+      await api.post(`/corporate-okrs/${objective._id}/key-results/${editingKRIndex}/teams`, {
+        teamIds: selectedTeams
+      });
+      // Refresh the objectives after update
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating teams:', error);
+    } finally {
+      setEditingKRIndex(null);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-4 relative">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">{objective.objective}</h3>
-        <div className="flex items-center space-x-2">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(objective.status)}`}>
-            {getStatusText(objective.status)}
-          </span>
-          <div className="relative">
-            <button
-              onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
-              className="p-1 hover:bg-gray-100 rounded-full"
-            >
-              <MoreVertical className="w-5 h-5 text-gray-500" />
-            </button>
-            
-            {isStatusMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                <div className="py-1">
-                  <button
-                    onClick={() => setIsStatusMenuOpen(false)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Редактировать
-                  </button>
-                  <button
-                    onClick={() => setIsStatusMenuOpen(false)}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                  >
-                    Удалить
-                  </button>
+        {isCreator && (
+          <div className="flex items-center space-x-2">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(objective.status)}`}>
+              {getStatusText(objective.status)}
+            </span>
+            <div className="relative">
+              <button
+                onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
+                className="p-1 hover:bg-gray-100 rounded-full"
+              >
+                <MoreVertical className="w-5 h-5 text-gray-500" />
+              </button>
+              
+              {isStatusMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                  <div className="py-1">
+                    <button
+                      onClick={() => setIsStatusMenuOpen(false)}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      onClick={() => setIsStatusMenuOpen(false)}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    >
+                      Удалить
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
       
       {objective.description && (
@@ -113,7 +147,18 @@ const OKRCard: React.FC<{ objective: Objective; teams: Team[] }> = ({ objective,
           <div key={index} className="bg-gray-50 rounded p-3">
             <div className="flex justify-between items-center mb-2">
               <span className="font-medium">{kr.title}</span>
-              <span className="text-sm text-gray-600">{kr.progress}%</span>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">{kr.progress}%</span>
+                {isCreator && (
+                  <button
+                    onClick={() => handleEditTeams(index)}
+                    className="p-1 hover:bg-gray-200 rounded-full"
+                    title="Редактировать команды"
+                  >
+                    <Users className="w-4 h-4 text-gray-500" />
+                  </button>
+                )}
+              </div>
             </div>
             {kr.description && (
               <p className="text-sm text-gray-600 mb-2">{kr.description}</p>
@@ -134,6 +179,62 @@ const OKRCard: React.FC<{ objective: Objective; teams: Team[] }> = ({ objective,
           </div>
         ))}
       </div>
+
+      {/* Team Selection Modal */}
+      {editingKRIndex !== null && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">
+                Назначить команды для KR {editingKRIndex + 1}
+              </h2>
+              <button
+                onClick={() => setEditingKRIndex(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto space-y-2 mb-4">
+              {teams.map(team => (
+                <label 
+                  key={team._id} 
+                  className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedTeams.includes(team._id)}
+                    onChange={(e) => {
+                      const newTeams = e.target.checked
+                        ? [...selectedTeams, team._id]
+                        : selectedTeams.filter(id => id !== team._id);
+                      setSelectedTeams(newTeams);
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">{team.name}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                onClick={() => setEditingKRIndex(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSaveTeams}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 pt-4 border-t border-gray-200">
         <div className="flex justify-between items-center">
@@ -157,6 +258,7 @@ const CompanyOKRPage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isCreator, setIsCreator] = useState<boolean>(false);
   const [newObjective, setNewObjective] = useState<{
     objective: string;
     description: string;
@@ -172,6 +274,24 @@ const CompanyOKRPage: React.FC = () => {
   });
 
   useEffect(() => {
+    const checkCreatorAccess = async () => {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+          setIsCreator(false);
+          return;
+        }
+        const user = JSON.parse(userStr);
+        const response = await api.get(`/companies/${companyId}`);
+        const company = response.data;
+        setIsCreator(company.createdBy === user.id);
+      } catch (error) {
+        console.error('Error checking creator access:', error);
+        setIsCreator(false);
+      }
+    };
+
+    checkCreatorAccess();
     fetchObjectives();
     fetchTeams();
   }, [companyId]);
@@ -241,16 +361,18 @@ const CompanyOKRPage: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">OKR компании</h1>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Создать OKR
-        </button>
+        {isCreator && (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Создать OKR
+          </button>
+        )}
       </div>
 
-      {showCreateForm && (
+      {isCreator && showCreateForm && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Создать новый OKR</h2>
           <form onSubmit={handleCreateObjective} className="space-y-4">
@@ -373,6 +495,7 @@ const CompanyOKRPage: React.FC = () => {
               key={objective._id} 
               objective={objective}
               teams={teams}
+              isCreator={isCreator}
             />
           ))}
         </div>
