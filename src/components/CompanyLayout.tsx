@@ -60,19 +60,13 @@ const CompanyLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Top Bar - фиксированный */}
       <div className="fixed top-0 left-0 right-0 z-10">
         <CompanyTopBar name={userDetail.name} email={userDetail.email} roles={userDetail.roles} companyName={company.name} />
       </div>
-
-      {/* Основной контент с отступом под топбар */}
       <div className="flex flex-1 mt-[72px]">
-        {/* Sidebar - фиксированный */}
         <div className="fixed left-0 top-[72px] bottom-0">
           <CompanySidebar isCreator={isCreator} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
-
-        {/* Основной контент с отступом под сайдбар */}
         <div className="flex-1 ml-60 p-6 overflow-auto">
           <Outlet />
         </div>

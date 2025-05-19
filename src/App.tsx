@@ -19,6 +19,9 @@ import TeamRolesPage from './pages/TeamRolesPage';
 import UserRolesPage from './pages/UserRolesPage';
 import CompanyTeamsSection from './components/CompanyTeamsSection';
 import CompanyOKRPage from './pages/CompanyOKRPage';
+import StatisticsPage from './pages/StatisticsPage';
+import TeamStatisticsPage from './pages/TeamStatisticsPage';
+import CompanyStatisticsPage from './pages/CompanyStatisticsPage';
 
 // Компонент для защищённых маршрутов
 const ProtectedRoute: React.FC = () => {
@@ -92,6 +95,12 @@ function App() {
             <Route path="users" element={<UsersPage />} />
             <Route path="roles" element={<RolesPage />} />
             <Route path="okrs" element={<CompanyOKRPage />} />
+            
+            {/* Маршруты статистики */}
+            <Route path="statistics" element={<StatisticsPage />} />
+            <Route path="statistics/company" element={<CompanyStatisticsPage />} />
+            <Route path="statistics/team" element={<TeamStatisticsPage />} />
+            <Route path="statistics/team/:teamId" element={<TeamStatisticsPage />} />
             
             {/* Защищённые маршруты настроек */}
             <Route element={<CompanySettingsRoute />}>

@@ -589,16 +589,15 @@ const CompanyOKRPage: React.FC = () => {
                           <div>
                             <input
                               type="number"
-                              value={kr.startValue || ''}
+                              value={kr.startValue === 0 ? 0 : kr.startValue || ''}
                               min="0"
                               onChange={(e) => {
-                                const newValue = parseFloat(e.target.value);
-                                if (!isNaN(newValue)) {
-                                  if (newValue >= 0 && newValue < kr.targetValue) {
-                                    handleKeyResultChange(index, 'startValue', newValue);
+                                const value = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                if (value === '' || (!isNaN(value) && value >= 0)) {
+                                  if (kr.targetValue && typeof value === 'number' && value >= kr.targetValue) {
+                                    return;
                                   }
-                                } else {
-                                  handleKeyResultChange(index, 'startValue', 0);
+                                  handleKeyResultChange(index, 'startValue', value === '' ? 0 : value);
                                 }
                               }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -613,19 +612,18 @@ const CompanyOKRPage: React.FC = () => {
                           <div>
                             <input
                               type="number"
-                              value={kr.targetValue || ''}
+                              value={kr.targetValue === 0 ? 0 : kr.targetValue || ''}
                               min="0"
                               onChange={(e) => {
-                                const newValue = parseFloat(e.target.value);
-                                if (!isNaN(newValue)) {
-                                  if (newValue >= 0 && newValue > kr.startValue) {
-                                    if (kr.metricType === 'percentage' && newValue > 100) {
-                                      return;
-                                    }
-                                    handleKeyResultChange(index, 'targetValue', newValue);
+                                const value = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                if (value === '' || (!isNaN(value) && value >= 0)) {
+                                  if (kr.startValue && typeof value === 'number' && value <= kr.startValue) {
+                                    return;
                                   }
-                                } else {
-                                  handleKeyResultChange(index, 'targetValue', 0);
+                                  if (kr.metricType === 'percentage' && typeof value === 'number' && value > 100) {
+                                    return;
+                                  }
+                                  handleKeyResultChange(index, 'targetValue', value === '' ? 0 : value);
                                 }
                               }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -95,7 +95,6 @@ const CompaniesPage: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {/* Левая панель с информацией о пользователе */}
       <div className="w-64 bg-white shadow-lg p-6">
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-2">Профиль</h2>

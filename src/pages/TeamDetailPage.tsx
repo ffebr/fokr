@@ -3,24 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Users, Target, CheckCircle2, Plus, X, MoreVertical } from 'lucide-react';
 import api from '../api/axios';
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'active': return 'bg-blue-100 text-blue-800';
-    case 'done': return 'bg-green-100 text-green-800';
-    case 'draft': return 'bg-gray-100 text-gray-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'active': return 'Активный';
-    case 'done': return 'Завершен';
-    case 'draft': return 'Черновик';
-    default: return status;
-  }
-};
-
 const metricTypeOptions = [
   { value: 'number', label: 'Число' },
   { value: 'percentage', label: 'Процент' },
@@ -94,16 +76,6 @@ interface Team {
   updatedAt: string;
 }
 
-interface CorporateOKR {
-  _id: string;
-  objective: string;
-  description: string;
-  company: {
-    _id: string;
-    name: string;
-  };
-}
-
 interface AssignedKeyResult {
   corporateOKRId: string;
   companyName: string;
@@ -133,15 +105,6 @@ interface CreateOKRForm {
   parentOKR?: string;
   parentKRIndex?: number;
   deadline: string;
-}
-
-interface AssignedKR {
-  _id: string;
-  title: string;
-  description: string;
-  progress: number;
-  corporateOKRId: string;
-  krIndex: number;
 }
 
 interface CorporateKeyResult {
@@ -779,28 +742,19 @@ const TeamDetailPage: React.FC = () => {
 
   const fetchTeamOKRs = async () => {
     if (!teamId) return;
-    
     try {
-      console.log('Fetching team OKRs...');
       const okrsResponse = await api.get(`/teams/${teamId}/okrs`);
-      console.log('Team OKRs response:', okrsResponse.data);
       const okrsData = okrsResponse.data.okrs;
-
-      // Загружаем информацию о прикрепленных KR только для тех OKR, где она есть
       const okrsWithAttachedInfo = await Promise.all(
         okrsData.map(async (okr: OKR) => {
-          console.log('Processing OKR:', okr);
           if (!okr.parentOKR || okr.parentKRIndex === undefined) {
-            console.log('No parent OKR, skipping...');
             return okr;
           }
           
           try {
-            console.log('Fetching corporate KR info for:', { parentOKR: okr.parentOKR, krIndex: okr.parentKRIndex });
             const response = await api.get<CorporateKRResponse>(
               `/corporate-okrs/${okr.parentOKR}/key-results/${okr.parentKRIndex}`
             );
-            console.log('Corporate KR response:', response.data);
             
             return {
               ...okr,
@@ -815,7 +769,6 @@ const TeamDetailPage: React.FC = () => {
               }
             };
           } catch (error) {
-            console.error('Ошибка при загрузке информации о прикрепленном KR:', error);
             return okr;
           }
         })
